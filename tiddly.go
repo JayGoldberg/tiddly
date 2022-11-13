@@ -2,13 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tiddly
+package main
 
 import (
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -58,20 +60,11 @@ import (
 // in the wiki. It seems like the TiddlyWeb plugin or the core syncer module
 // would need changes to understand a new "read-only" mode.
 
-func init() {
-	http.HandleFunc("/", authCheck(main))
-	http.HandleFunc("/auth", authCheck(auth))
-	http.HandleFunc("/status", authCheck(status))
-	http.HandleFunc("/recipes/all/tiddlers/", authCheck(tiddler))
-	http.HandleFunc("/recipes/all/tiddlers.json", authCheck(tiddlerList))
-	http.HandleFunc("/bags/bag/tiddlers/", authCheck(deleteTiddler))
-}
-
 func authCheck(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !mustBeAdmin(w, r) {
-			return
-		}
+		//if !mustBeAdmin(w, r) {
+		//	return
+		//}
 		f(w, r)
 	}
 }
@@ -92,7 +85,27 @@ type Tiddler struct {
 	Text string `datastore:"Text,noindex"`
 }
 
-func main(w http.ResponseWriter, r *http.Request) {
+func main() {
+	http.HandleFunc("/", authCheck(indexHandler))
+	http.HandleFunc("/auth", authCheck(authHandler))
+	http.HandleFunc("/status", authCheck(statusHandler))
+	http.HandleFunc("/recipes/all/tiddlers/", authCheck(tiddlerHandler))
+	http.HandleFunc("/recipes/all/tiddlers.json", authCheck(tiddlerListHandler))
+	http.HandleFunc("/bags/bag/tiddlers/", authCheck(deleteTiddlerHandler))
+  
+  port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+		log.Printf("Defaulting to port %s", port)
+	}
+
+	log.Printf("Listening on port %s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "bad method", 405)
 		return
@@ -105,7 +118,7 @@ func main(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
 }
 
-func auth(w http.ResponseWriter, r *http.Request) {
+func authHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	u := user.Current(ctx)
 	name := "GUEST"
@@ -115,7 +128,7 @@ func auth(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<html>\nYou are logged in as %s.\n\n<a href=\"/\">Main page</a>.\n", name)
 }
 
-func status(w http.ResponseWriter, r *http.Request) {
+func statusHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "bad method", 405)
 		return
@@ -130,7 +143,7 @@ func status(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"username": "` + name + `", "space": {"recipe": "all"}}`))
 }
 
-func tiddlerList(w http.ResponseWriter, r *http.Request) {
+func tiddlerListHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	q := datastore.NewQuery("Tiddler")
 	// Only need Meta, but get no results if we do this.
@@ -185,18 +198,18 @@ func tiddlerList(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func tiddler(w http.ResponseWriter, r *http.Request) {
+func tiddlerHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		getTiddler(w, r)
+		getTiddlerHandler(w, r)
 	case "PUT":
-		putTiddler(w, r)
+		putTiddlerHandler(w, r)
 	default:
 		http.Error(w, "bad method", 405)
 	}
 }
 
-func getTiddler(w http.ResponseWriter, r *http.Request) {
+func getTiddlerHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	title := strings.TrimPrefix(r.URL.Path, "/recipes/all/tiddlers/")
 	key := datastore.NewKey(ctx, "Tiddler", title, 0, nil)
@@ -221,7 +234,7 @@ func getTiddler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func putTiddler(w http.ResponseWriter, r *http.Request) {
+func putTiddlerHandler(w http.ResponseWriter, r *http.Request) {
 	if !mustBeAdmin(w, r) {
 		return
 	}
@@ -278,7 +291,7 @@ func putTiddler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Etag", etag)
 }
 
-func deleteTiddler(w http.ResponseWriter, r *http.Request) {
+func deleteTiddlerHandler(w http.ResponseWriter, r *http.Request) {
 	if !mustBeAdmin(w, r) {
 		return
 	}
