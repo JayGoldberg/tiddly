@@ -6,6 +6,8 @@ as the back end for a personal [TiddlyWiki](http://tiddlywiki.com/)
 The [TiddlyWiki5](https://github.com/Jermolene/TiddlyWiki5) implementation
 has a number of back end options. This app implements the backend expected
 by the “[TiddlyWeb](http://tiddlyweb.com/) and TiddlySpace components” plugin.
+using [Datastore](https://cloud.google.com/appengine/docs/legacy/standard/go111/datastore)
+as the backing store.
 
 The usual way to deploy TiddlyWeb is to run a fairly complex Python web server
 program. I'd rather not. Instead I implemented a minimal Go server that responds
@@ -38,11 +40,12 @@ tiddler content on demand.
 
 ## Deployment
 
-Create an Google App Engine standard app and deploy with
+[Create an Google App Engine standard app]
+(https://cloud.google.com/appengine/docs/standard/go/building-app) and deploy with
 
-	appcfg.py -A your-app -V your-version update .
+	gcloud app deploy
 
-Then visit https://your-app.appspot.com/. As noted above, only admins
+Then visit https://your-app.appspot.com/. As noted above, only [admins](https://cloud.google.com/appengine/docs/legacy/standard/go111/users)
 will have access to the content.
 
 ## Plugins
@@ -65,7 +68,7 @@ This is sufficient to make macros take effect on reload.
 
 For some reason, no such special hack is needed for `$:/tags/Stylesheet` tiddlers.
 
-## Synchronization
+## Synchronization / Backup
 
 If you set Control Panel > Info > Basics > Default tiddlers by clicking
 “retain story ordering”, then the story list (the list of tiddlers shown on the page)
@@ -73,6 +76,9 @@ is written to the server as it changes and is polled back from the server every 
 This means that if you have the web site open in two different browsers 
 (for example, at home and at work), changes to what you're viewing in one
 propagate to the other.
+
+Because Tiddlers are lazy-loaded, the Export options inside TiddlyWiki will
+not work.
 
 ## TiddlyWiki base image
 
