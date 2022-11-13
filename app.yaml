@@ -1,7 +1,4 @@
-application: tiddlywiki-gae
-version: 2016-12-22
-runtime: go
-api_version: go1
+me: go111
 
 handlers:
 - url: /.*
